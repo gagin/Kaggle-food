@@ -1,18 +1,17 @@
 library(dplyr)
 
-progress <- function(reset=FALSE) {
+progress <- function(add="", reset=FALSE) {
         if(reset) {
-                count <<- 0
-                hundreds <<- 0
+                progress.counter <<- 0
+                progress.hundreds <<- 0
         }
-        counter <<- count.hundreds[1] + 1
-        if(counter == 100) {
-                hundreds <- count.hundreds[2] + 1
+        progress.counter <<- progress.counter + 1
+        if(progress.counter == 100) {
+                progress.hundreds <<- progress.hundreds + 1
                 if(add != "") add <- paste(":",add)
-                cat(paste0("Processing row ", hundreds*100, add, "\n"))
-                counter <- 0
-        } else hundreds <- count.hundreds[2]
-        c(counter,hundreds)
+                cat(paste0("Processing row ", progress.hundreds*100, add, "\n"))
+                progress.counter <<- 0
+        }
 }
 
 setwd(file.path(normalizePath("~"),"kaggle-food"))
@@ -28,37 +27,26 @@ ings.tr <- names(train)[-c(1,2,3)]
 #ings.train.dots[! ings.train.dots %in% names(train)[-c(1,2,3)]]
 # Still sucks
 
-counter <- 0
+progress(reset=TRUE)
 for(i in ings.tr) {      
-        counter <- counter + 1
-        if(counter == 100) {
-                cat(paste("Processing row",i,"\n"))
-                counter <- 0
-        }
+        progress(i)
         train[i] <- ifelse(is.na(train[i]),0,1)
 }
 # 2Gb
-counter <- 0
-for(i in ings.tr) {      
-        counter <- counter + 1
-        if(counter == 100) {
-                cat(paste("Processing row",i,"\n"))
-                counter <- 0
-        }
-        train[i] <- sapply(train[i],as.integer)
-}
+#progress(reset=TRUE)
+#for(i in ings.tr) {      
+#        progress(i)
+#        train[i] <- sapply(train[i],as.integer)
+#}
 # 1Gb again
 
 # lapply doesn't give performance improvement anyway, need some vectorized func
 
 cuisines <- unique(train$cuisine)
-counter <- 0
+counts <- list()
+progress(reset=TRUE)
 for(i in ings.tr) {
-        counter <- counter + 1
-        if(counter == 100) {
-                cat(paste("Processing row",i,"\n"))
-                counter <- 0
-        }
+        progress(i)
         counts[[i]]<-table(train[train[i] == 1, "cuisine"])
 }
 
@@ -66,14 +54,9 @@ props <- data.frame(matrix(0,nrow=length(ings.tr),ncol=length(cuisines)))
 rownames(props)<-ings.tr
 colnames(props)<-cuisines
 
-hundreds <- counter <- 0
+progress(reset=TRUE)
 for(i in ings.tr) {
-        counter <- counter + 1
-        if(counter == 100) {
-                hundreds <- hundreds + 1
-                cat(paste("Processing row", hundreds*100, "-", i, "\n"))
-                counter <- 0
-        }
+        progress(i)
         for(cu in cuisines)
                 props[i,cu]<-counts[[i]][[cu]]
 }
@@ -96,14 +79,16 @@ colnames(res) <- c("id", "cuisine")
 res$cuisine <- as.character(res$cuisine)
 res$id <- test.ids
 
+debug <- FALSE
 blank <- rep(0,length(cuisines))
 cell <- data.frame(1)
+progress(reset=TRUE)
 for(i in 1:length(test.ids)) {
+        progress()
         cu.scores <- blank
         for(ing in test.list[[i]][[2]])
-                if(ing %in% ings.train) {
-                        ing
-                        cat(ing)
+                if(ing %in% ings.tr) {
+                        if(debug) cat(paste0(ing,"\n"))
                         cu.scores <- cu.scores + probs[ing,]
                 }
         res[i,2]<-names(cu.scores)[which.max(cu.scores)]
