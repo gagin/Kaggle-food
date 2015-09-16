@@ -1,5 +1,20 @@
 library(dplyr)
 
+progress <- function(reset=FALSE) {
+        if(reset) {
+                count <<- 0
+                hundreds <<- 0
+        }
+        counter <<- count.hundreds[1] + 1
+        if(counter == 100) {
+                hundreds <- count.hundreds[2] + 1
+                if(add != "") add <- paste(":",add)
+                cat(paste0("Processing row ", hundreds*100, add, "\n"))
+                counter <- 0
+        } else hundreds <- count.hundreds[2]
+        c(counter,hundreds)
+}
+
 setwd(file.path(normalizePath("~"),"kaggle-food"))
 
 train <- read.csv("train.csv", check.names=FALSE)
@@ -17,7 +32,7 @@ counter <- 0
 for(i in ings.tr) {      
         counter <- counter + 1
         if(counter == 100) {
-                cat(paste("Processing row",r,"\n"))
+                cat(paste("Processing row",i,"\n"))
                 counter <- 0
         }
         train[i] <- ifelse(is.na(train[i]),0,1)
@@ -27,7 +42,7 @@ counter <- 0
 for(i in ings.tr) {      
         counter <- counter + 1
         if(counter == 100) {
-                cat(paste("Processing row",r,"\n"))
+                cat(paste("Processing row",i,"\n"))
                 counter <- 0
         }
         train[i] <- sapply(train[i],as.integer)
@@ -37,17 +52,31 @@ for(i in ings.tr) {
 # lapply doesn't give performance improvement anyway, need some vectorized func
 
 cuisines <- unique(train$cuisine)
-for(i in ings.tr) {      
+counter <- 0
+for(i in ings.tr) {
+        counter <- counter + 1
+        if(counter == 100) {
+                cat(paste("Processing row",i,"\n"))
+                counter <- 0
+        }
         counts[[i]]<-table(train[train[i] == 1, "cuisine"])
 }
 
-props <- data.frame(matrix(0,nrow=length(ings),ncol=length(cuisines)))
-rownames(props)<-ings
+props <- data.frame(matrix(0,nrow=length(ings.tr),ncol=length(cuisines)))
+rownames(props)<-ings.tr
 colnames(props)<-cuisines
 
-for(i in ings.tr)
+hundreds <- counter <- 0
+for(i in ings.tr) {
+        counter <- counter + 1
+        if(counter == 100) {
+                hundreds <- hundreds + 1
+                cat(paste("Processing row", hundreds*100, "-", i, "\n"))
+                counter <- 0
+        }
         for(cu in cuisines)
                 props[i,cu]<-counts[[i]][[cu]]
+}
 
 props$sum<-rowSums(props)
 probs <- sapply(props,function(x) x/props$sum)
