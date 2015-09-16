@@ -1,15 +1,20 @@
 library(dplyr)
 
-progress <- function(add="", reset=FALSE) {
+progress <- function(add="", reset=FALSE, steps=100, msg="Processing row") {
+# Potentially conflicts with httr::progress
         if(reset) {
                 progress.counter <<- 0
                 progress.hundreds <<- 0
         }
         progress.counter <<- progress.counter + 1
-        if(progress.counter == 100) {
+        if(progress.counter == steps) {
                 progress.hundreds <<- progress.hundreds + 1
                 if(add != "") add <- paste(":",add)
-                cat(paste0("Processing row ", progress.hundreds*100, add, "\n"))
+                cat(paste0(msg,
+                           " ",
+                           progress.hundreds*steps,
+                           add,
+                           "\n"))
                 progress.counter <<- 0
         }
 }
@@ -81,7 +86,7 @@ res$id <- test.ids
 
 debug <- FALSE
 blank <- rep(0,length(cuisines))
-cell <- data.frame(1)
+# cell <- data.frame(1) # not needed anymore - tried to use to fix colnames
 progress(reset=TRUE)
 for(i in 1:length(test.ids)) {
         progress()
@@ -89,7 +94,7 @@ for(i in 1:length(test.ids)) {
         for(ing in test.list[[i]][[2]])
                 if(ing %in% ings.tr) {
                         if(debug) cat(paste0(ing,"\n"))
-                        cu.scores <- cu.scores + probs[ing,]
+                        cu.scores <- cu.scores + probs[ing,]^2
                 }
         res[i,2]<-names(cu.scores)[which.max(cu.scores)]
 }
