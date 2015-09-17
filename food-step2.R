@@ -1,23 +1,6 @@
 library(dplyr)
 
-progress <- function(add="", reset=FALSE, steps=100, msg="Processing row") {
-# Potentially conflicts with httr::progress
-        if(reset) {
-                progress.counter <<- 0
-                progress.hundreds <<- 0
-        }
-        progress.counter <<- progress.counter + 1
-        if(progress.counter == steps) {
-                progress.hundreds <<- progress.hundreds + 1
-                if(add != "") add <- paste(":",add)
-                cat(paste0(msg,
-                           " ",
-                           progress.hundreds*steps,
-                           add,
-                           "\n"))
-                progress.counter <<- 0
-        }
-}
+source("https://raw.githubusercontent.com/gagin/R-tricks/master/progress.R")
 
 setwd(file.path(normalizePath("~"),"kaggle-food"))
 
@@ -32,15 +15,15 @@ ings.tr <- names(train)[-c(1,2,3)]
 #ings.train.dots[! ings.train.dots %in% names(train)[-c(1,2,3)]]
 # Still sucks
 
-progress(reset=TRUE)
+tick <- progress()
 for(i in ings.tr) {      
-        progress(i)
+        tick(i)
         train[i] <- ifelse(is.na(train[i]),0,1)
 }
 # 2Gb
-#progress(reset=TRUE)
+#tick <- progress()
 #for(i in ings.tr) {      
-#        progress(i)
+#        tick(i)
 #        train[i] <- sapply(train[i],as.integer)
 #}
 # 1Gb again
@@ -49,9 +32,9 @@ for(i in ings.tr) {
 
 cuisines <- unique(train$cuisine)
 counts <- list()
-progress(reset=TRUE)
+tick <- progress()
 for(i in ings.tr) {
-        progress(i)
+        tick(i)
         counts[[i]]<-table(train[train[i] == 1, "cuisine"])
 }
 
@@ -59,9 +42,9 @@ props <- data.frame(matrix(0,nrow=length(ings.tr),ncol=length(cuisines)))
 rownames(props)<-ings.tr
 colnames(props)<-cuisines
 
-progress(reset=TRUE)
+tick <- progress()
 for(i in ings.tr) {
-        progress(i)
+        tick(i)
         for(cu in cuisines)
                 props[i,cu]<-counts[[i]][[cu]]
 }
@@ -84,20 +67,22 @@ colnames(res) <- c("id", "cuisine")
 res$cuisine <- as.character(res$cuisine)
 res$id <- test.ids
 
+probs.cut<-ifelse(probs<0.5,0,probs)
+
 debug <- FALSE
 blank <- rep(0,length(cuisines))
 # cell <- data.frame(1) # not needed anymore - tried to use to fix colnames
-progress(reset=TRUE)
+tick <- progress()
 for(i in 1:length(test.ids)) {
-        progress()
+        tick()
         cu.scores <- blank
         for(ing in test.list[[i]][[2]])
                 if(ing %in% ings.tr) {
                         if(debug) cat(paste0(ing,"\n"))
-                        cu.scores <- cu.scores + probs[ing,]^2
+                        cu.scores <- cu.scores + probs.cut[ing,]^2
                 }
         res[i,2]<-names(cu.scores)[which.max(cu.scores)]
 }
         
 
-write.csv(res,"submit.csv",row.names=FALSE, quote=FALSE)
+write.csv(res,"submit2cut.5.csv",row.names=FALSE, quote=FALSE)

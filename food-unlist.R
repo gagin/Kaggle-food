@@ -4,7 +4,7 @@ library(data.table)
 setwd(file.path(normalizePath("~"),"kaggle-food"))
 #f <- fromJSON("train.json")
 f <- fromJSON("train.json", simplifyV=F)
-f1 <- f[1:10000]
+f1 <- f[1:1000]
 system.time(
         data <- f1 %>%
         lapply(
@@ -31,5 +31,5 @@ system.time(
 
 # Perhaps next step in building counts will be slower here though?
 
-# But cell assignment to data.table[1,1] was very slow - because it's a wrong
-# syntax actually, it should be data.table[1]$columnname
+# But cell assignment to data.table[1,1] was very slow - supposedly
+# because it evaluates and adds records to indeces, so it fast only at scale
