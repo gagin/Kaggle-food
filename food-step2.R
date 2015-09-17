@@ -18,15 +18,8 @@ ings.tr <- names(train)[-c(1,2,3)]
 tick <- progress()
 for(i in ings.tr) {      
         tick(i)
-        train[i] <- ifelse(is.na(train[i]),0,1)
+        train[i] <- ifelse(is.na(train[i]),0L,1L)
 }
-# 2Gb
-#tick <- progress()
-#for(i in ings.tr) {      
-#        tick(i)
-#        train[i] <- sapply(train[i],as.integer)
-#}
-# 1Gb again
 
 # lapply doesn't give performance improvement anyway, need some vectorized func
 
