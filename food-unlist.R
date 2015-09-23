@@ -74,22 +74,7 @@ system.time({
         test.list <- fromJSON("test.json", simplifyV=F)
 })
 
-system.time({
-        
-ings.test <- unique(unlist(sapply(test.list,function(x) unique(x[[2]]))))
-
-# Do we have any left?
-# ings.test[!ings.test %in% ings.tr]
-
-test.ids <- sapply(test.list,function(x)x[[1]])
-
-res <- data.frame(matrix(0, nrow=length(test.ids), ncol=2))
-colnames(res) <- c("id", "cuisine")
-res$cuisine <- as.character(res$cuisine)
-res$id <- test.ids
-
 probs.cut<-probs #ifelse(probs<0.2,0,probs)
-})
 
 
 CuisineByIngredients <- function(ings) {
@@ -107,7 +92,7 @@ CuisineByIngredients <- function(ings) {
 
 tick <- progress()
 system.time({
-re <- lapply(test.list,
+res <- lapply(test.list,
              function(x) {
                      tick()
                      raw.ings <- x[[2]]
@@ -118,22 +103,8 @@ re <- lapply(test.list,
              ) %>% unlist %>% matrix(ncol=2, byrow=TRUE)
 })
 
-system.time({
-blank <- rep(0,length(cuisines))
-tick <- progress()
-for(i in 1:length(test.ids)) {
-        tick()
-        cu.scores <- blank
-        for(ing in test.list[[i]][[2]]) {
-                ing <- cleanup(ing)
-                if(ing %in% ings.tr)
-                        cu.scores <- cu.scores + probs.cut[ing,]
-        }
-        res[i,2]<-names(cu.scores)[which.max(cu.scores)]
-}
-})
-
-write.csv(res,"submit2cut.5.csv",row.names=FALSE, quote=FALSE)
+colnames(res) <- c("id","cuisine")
+write.csv(res,"submit-apply-nocut-linear.csv",row.names=FALSE, quote=FALSE)
 
 
                 
