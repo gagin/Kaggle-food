@@ -12,8 +12,28 @@ system.time({
         f <- f.full#[1:1000]
 
 cleanup <- function(s) {
-        s1 <- strsplit(x=s, split="oz.) ", fixed=TRUE)[[1]][2]
-        if(is.na(s1)) s else s1
+        s <- tolower(s)
+        s <- gsub('&', '', s, fixed=TRUE)
+        # remove oz.) prefixes
+        if(
+                length(
+                        s<-strsplit(x=s,
+                                    split="oz.) ",
+                                    fixed=TRUE
+                                    )[[1]]
+                        ) > 1
+        ) s<- s[2]
+        # remove lb. prefixes
+        if(
+                length(
+                        s<-strsplit(x=s,
+                                    split="lb. ",
+                                    fixed=TRUE
+                        )[[1]]
+                ) > 1
+        ) s<- s[2]
+        
+        s
 }
 
 
@@ -31,11 +51,12 @@ system.time({
         ) %>%                 
         unlist %>%
         matrix(ncol=3, byrow=TRUE)
-})
-colnames(data) <- c("id","cuisine","ingridient")
-# This matrix approach converts full data set just in 3 seconds
 
-system.time({
+colnames(data) <- c("id","cuisine","ingridient")
+# This matrix approach converts full data set in just 3 seconds,
+# 7 if to clean up "(N oz.)" prefixes right away
+
+
         counts <- table(as.data.table(data)[,.(cuisine,ingridient)]) %>%
                 as.data.frame %>%
                 spread(cuisine, Freq)
@@ -47,7 +68,7 @@ system.time({
         probs <- sapply(counts,function(x) x/counts$sum)
         row.names(probs) <- ings.tr
         probs<-probs[, -ncol(probs)]
-        })
+})
 
 system.time({
         test.list <- fromJSON("test.json", simplifyV=F)
@@ -67,25 +88,50 @@ colnames(res) <- c("id", "cuisine")
 res$cuisine <- as.character(res$cuisine)
 res$id <- test.ids
 
-probs.cut<-ifelse(probs<0.5,0,probs)
-
+probs.cut<-probs #ifelse(probs<0.2,0,probs)
 })
 
-debug <- FALSE
+
+CuisineByIngredients <- function(ings) {
+        if(length(ings)==0) "wrong" else
+        cuisines[
+                ings %>%
+                #sapply(cleanup) %>%
+                lapply(function(y) probs.cut[y,]) %>%
+                unlist %>%
+                matrix(ncol=20, byrow=TRUE) %>%
+                apply(2,sum) %>%
+                which.max
+                ]
+}
+
+tick <- progress()
+system.time({
+re <- lapply(test.list,
+             function(x) {
+                     tick()
+                     raw.ings <- x[[2]]
+                     clean.ings <- sapply(raw.ings, cleanup)
+                     known.ings <- clean.ings[clean.ings %in% ings.tr]
+                     c(x[[1]],
+                       CuisineByIngredients(known.ings))}
+             ) %>% unlist %>% matrix(ncol=2, byrow=TRUE)
+})
+
+system.time({
 blank <- rep(0,length(cuisines))
-# cell <- data.frame(1) # not needed anymore - tried to use to fix colnames
 tick <- progress()
 for(i in 1:length(test.ids)) {
         tick()
         cu.scores <- blank
-        for(ing in test.list[[i]][[2]])
-                if(ing %in% ings.tr) {
-                        if(debug) cat(paste0(ing,"\n"))
-                        cu.scores <- cu.scores + probs.cut[ing,]^2
-                }
+        for(ing in test.list[[i]][[2]]) {
+                ing <- cleanup(ing)
+                if(ing %in% ings.tr)
+                        cu.scores <- cu.scores + probs.cut[ing,]
+        }
         res[i,2]<-names(cu.scores)[which.max(cu.scores)]
 }
-
+})
 
 write.csv(res,"submit2cut.5.csv",row.names=FALSE, quote=FALSE)
 
