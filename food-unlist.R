@@ -5,11 +5,8 @@ library(tidyr)
 source("https://raw.githubusercontent.com/gagin/R-tricks/master/progress.R")
 
 setwd(file.path(normalizePath("~"),"kaggle-food"))
-#f <- fromJSON("train.json")
-system.time({
-        f.full <- fromJSON("train.json", simplifyV=F)
-})
-        f <- f.full#[1:1000]
+f.full <- fromJSON("train.json", simplifyV=F)
+f <- f.full#[1:1000]
 
 cleanup <- function(s) {
         s <- tolower(s)
@@ -20,8 +17,8 @@ cleanup <- function(s) {
                         s<-strsplit(x=s,
                                     split="oz.) ",
                                     fixed=TRUE
-                                    )[[1]]
-                        ) > 1
+                        )[[1]]
+                ) > 1
         ) s<- s[2]
         # remove lb. prefixes
         if(
@@ -36,9 +33,8 @@ cleanup <- function(s) {
         s
 }
 
-
-system.time({
-        data <- f %>%
+# convert json-resulted list to matrix
+data <- f %>%
         lapply(
                 function(x)
                         lapply(x$ingredients,
@@ -51,70 +47,50 @@ system.time({
         ) %>%                 
         unlist %>%
         matrix(ncol=3, byrow=TRUE)
+colnames(data) <- c("id", "cuisine", "ingridient")
 
-colnames(data) <- c("id","cuisine","ingridient")
-# This matrix approach converts full data set in just 3 seconds,
-# 7 if to clean up "(N oz.)" prefixes right away
+counts <- table(as.data.table(data)[, .(cuisine,ingridient)]) %>%
+        as.data.frame %>%
+        spread(cuisine, Freq)
+ings.tr <- counts$ingridient
+counts <- counts[,-1]
+cuisines <- colnames(counts)
+counts$sum <- rowSums(counts)
 
+# replace counts with shares of cases
+probs <- sapply(counts, function(x) x/counts$sum)
+row.names(probs) <- ings.tr
+probs <- probs[, -ncol(probs)]
 
-        counts <- table(as.data.table(data)[,.(cuisine,ingridient)]) %>%
-                as.data.frame %>%
-                spread(cuisine, Freq)
-        ings.tr <- counts$ingridient
-        counts <- counts[,-1]
-        cuisines <- colnames(counts)
-        counts$sum <- rowSums(counts)
-        
-        probs <- sapply(counts,function(x) x/counts$sum)
-        row.names(probs) <- ings.tr
-        probs<-probs[, -ncol(probs)]
-})
-
-system.time({
-        test.list <- fromJSON("test.json", simplifyV=F)
-})
-
-probs.cut<-probs #ifelse(probs<0.2,0,probs)
+test.list <- fromJSON("test.json", simplifyV=F)
 
 
-#CuisineByIngredients <- function(ings) {
-#        if(length(ings)==0) "wrong" else
-#                cuisines[
-#                        ings %>%
-#                                #sapply(cleanup) %>%
-#                                lapply(function(y) probs.cut[y,]) %>%
-#                                unlist %>%
-#                                matrix(ncol=20, byrow=TRUE) %>%
-#                                apply(2,sum) %>%
-#                                which.max
-#                        ]
-#}
+probs.cut <- ifelse(probs<0.2, 0, probs)
 
 probsDT <- data.table(probs.cut)[, ingredient := rownames(probs.cut)]
 setkey(probsDT, ingredient)
-CuisineByIngredientsDT <- function(ings) {
-        if(length(ings)==0) "wrong" else
-                cuisines[which.max(colSums(probsDT[J(ings),
-                                                   -ncol(probsDT),
-                                                   with=FALSE]))]
-}
-# 25 instead of 35 seconds with the data.table solution
+last.column <- ncol(probsDT)
 
-tick <- progress()
-system.time({
-res <- lapply(test.list,
-             function(x) {
-                     tick()
-                     raw.ings <- x[[2]]
-                     clean.ings <- sapply(raw.ings, cleanup)
-                     known.ings <- clean.ings[clean.ings %in% ings.tr]
-                     c(x[[1]],
-                       CuisineByIngredientsDT(known.ings))}
-             ) %>% unlist %>% matrix(ncol=2, byrow=TRUE)
-})
+# This version is safer but slower, and there's seem no completely empty ones
+#CuisineByIngredientsDT <- function(ings) {
+#        cross <- probsDT[J(ings), -ncol(probsDT), with=FALSE]
+#        if(nrow(cross)==0)
+#                "wrong"
+#        else
+#                cuisines[which.max(colSums(cross, na.rm=TRUE))]
+#}
 
-colnames(res) <- c("id","cuisine")
-write.csv(res,"submit-apply-nocut-linear.csv",row.names=FALSE, quote=FALSE)
+CuisineByIngredientsDT <- function(ings)
+        cuisines[which.max(colSums(probsDT[J(ings),
+                                           -last.column,
+                                           with=FALSE],
+                                   na.rm=TRUE))]
 
+res <- data.table(id=sapply(test.list, "[[", 1))
+res$cuisine <- sapply(
+        sapply(lapply(test.list,"[[", 2),
+               sapply,
+               cleanup),
+        CuisineByIngredientsDT)
 
-                
+write.csv(res, "submit6.csv", row.names=FALSE, quote=FALSE)
