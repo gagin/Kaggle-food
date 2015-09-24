@@ -29,7 +29,15 @@ cleanup <- function(s) {
                         )[[1]]
                 ) > 1
         ) s<- s[2]
-        
+        # remove anything after comma
+        if(
+                length(
+                        s<-strsplit(x=s,
+                                    split=",",
+                                    fixed=TRUE
+                        )[[1]]
+                ) > 1
+        ) s<- s[1]
         s
 }
 
@@ -64,9 +72,7 @@ probs <- probs[, -ncol(probs)]
 
 test.list <- fromJSON("test.json", simplifyV=F)
 
-
-probs.cut <- ifelse(probs<0.2, 0, probs)
-
+probs.cut <- (probs-0.1)^3#ifelse(probs<0.2, 0, probs)
 probsDT <- data.table(probs.cut)[, ingredient := rownames(probs.cut)]
 setkey(probsDT, ingredient)
 last.column <- ncol(probsDT)
@@ -80,7 +86,7 @@ last.column <- ncol(probsDT)
 #                cuisines[which.max(colSums(cross, na.rm=TRUE))]
 #}
 
-CuisineByIngredientsDT <- function(ings)
+CuisineByIngredients <- function(ings)
         cuisines[which.max(colSums(probsDT[J(ings),
                                            -last.column,
                                            with=FALSE],
@@ -91,6 +97,6 @@ res$cuisine <- sapply(
         sapply(lapply(test.list,"[[", 2),
                sapply,
                cleanup),
-        CuisineByIngredientsDT)
+        CuisineByIngredients)
 
-write.csv(res, "submit6.csv", row.names=FALSE, quote=FALSE)
+write.csv(res, "submit6-drop-after-comma.csv", row.names=FALSE, quote=FALSE)
