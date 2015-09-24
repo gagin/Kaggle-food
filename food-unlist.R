@@ -77,18 +77,28 @@ system.time({
 probs.cut<-probs #ifelse(probs<0.2,0,probs)
 
 
-CuisineByIngredients <- function(ings) {
+#CuisineByIngredients <- function(ings) {
+#        if(length(ings)==0) "wrong" else
+#                cuisines[
+#                        ings %>%
+#                                #sapply(cleanup) %>%
+#                                lapply(function(y) probs.cut[y,]) %>%
+#                                unlist %>%
+#                                matrix(ncol=20, byrow=TRUE) %>%
+#                                apply(2,sum) %>%
+#                                which.max
+#                        ]
+#}
+
+probsDT <- data.table(probs.cut)[, ingredient := rownames(probs.cut)]
+setkey(probsDT, ingredient)
+CuisineByIngredientsDT <- function(ings) {
         if(length(ings)==0) "wrong" else
-        cuisines[
-                ings %>%
-                #sapply(cleanup) %>%
-                lapply(function(y) probs.cut[y,]) %>%
-                unlist %>%
-                matrix(ncol=20, byrow=TRUE) %>%
-                apply(2,sum) %>%
-                which.max
-                ]
+                cuisines[which.max(colSums(probsDT[J(ings),
+                                                   -ncol(probsDT),
+                                                   with=FALSE]))]
 }
+# 25 instead of 35 seconds with the data.table solution
 
 tick <- progress()
 system.time({
@@ -99,7 +109,7 @@ res <- lapply(test.list,
                      clean.ings <- sapply(raw.ings, cleanup)
                      known.ings <- clean.ings[clean.ings %in% ings.tr]
                      c(x[[1]],
-                       CuisineByIngredients(known.ings))}
+                       CuisineByIngredientsDT(known.ings))}
              ) %>% unlist %>% matrix(ncol=2, byrow=TRUE)
 })
 
