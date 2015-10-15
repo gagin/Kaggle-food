@@ -55,12 +55,12 @@ data <- f %>%
         ) %>%                 
         unlist %>%
         matrix(ncol=3, byrow=TRUE)
-colnames(data) <- c("id", "cuisine", "ingridient")
+colnames(data) <- c("id", "cuisine", "ingredient")
 
-counts <- table(as.data.table(data)[, .(cuisine,ingridient)]) %>%
+counts <- table(as.data.table(data)[, .(cuisine,ingredient)]) %>%
         as.data.frame %>%
         spread(cuisine, Freq)
-ings.tr <- counts$ingridient
+ings.tr <- counts$ingredient
 counts <- counts[,-1]
 cuisines <- colnames(counts)
 counts$sum <- rowSums(counts)
